@@ -63,18 +63,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // ---------------------
   useEffect(() => {
     const initSession = async () => {
+      // Set loading to true only for the initial session check.
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) console.error('❌ Error getting session:', error.message);
         const session = data?.session;
         setUser(session?.user ?? null);
-
-        if (session?.user) {
-          await Promise.all([fetchProfile(session.user), fetchAppointments(session.user)]);
-        }
       } catch (err) {
         console.error('❌ Unexpected session init error:', err);
       } finally {
+        // Stop the main loading indicator after session is checked.
+        // Profile and appointments will load in the background.
         setLoading(false);
       }
     };
@@ -82,6 +81,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // When auth state changes, update user and fetch data.
+      // This doesn't affect the initial `loading` state.
       setUser(session?.user ?? null);
       if (session?.user) {
         await Promise.all([fetchProfile(session.user), fetchAppointments(session.user)]);
@@ -93,6 +94,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Separate effect to fetch data when user object is available.
+  // This runs after the initial session check and doesn't block the UI.
+  useEffect(() => {
+    if (user) {
+      Promise.all([fetchProfile(user), fetchAppointments(user)]);
+    }
+  }, [user]);
 
   // ---------------------
   // Profile + Appointments Fetch
