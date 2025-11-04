@@ -183,27 +183,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         password: cleanPassword,
       });
 
-      if (signUpError) return { error: new Error(signUpError.message) };
-      if (!authData.user) return { error: new Error('Registration succeeded but no user returned.') };
+      if (signUpError) {
+        // Handle cases where user might already exist but is unconfirmed.
+        if (signUpError.message.includes('user already registered')) {
+          // If user exists, try to log them in directly. This handles re-registration attempts.
+          return await login(cleanEmail, cleanPassword);
+        }
+        return { error: new Error(signUpError.message) };
+      }
 
-      // Manually set the user in the session to ensure subsequent operations (like profile upsert) are authenticated.
-      // This is crucial if RLS is enabled on the profiles table.
-      await supabase.auth.setUser(authData.user);
+      // After successful sign-up, log the user in to get an active session and user object.
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (signInError) return { error: new Error(signInError.message) };
+      if (!signInData.user) return { error: new Error('Login failed after sign up.') };
 
       // Use upsert to prevent "duplicate key" errors on re-registration attempts.
-      // This will create the profile if it doesn't exist, or update it if it does.
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
-          id: authData.user.id,
+          id: signInData.user.id, // Use the ID from the signed-in user
           full_name: name.trim(),
           phone: phone.trim(),
           email: cleanEmail,
         });
 
       if (profileError) return { error: new Error(profileError.message) };
-
-      console.log('✅ User registered:', cleanEmail);
       return { error: null };
     } catch (err: any) {
       return { error: new Error(err.message || 'Unexpected registration error') };
