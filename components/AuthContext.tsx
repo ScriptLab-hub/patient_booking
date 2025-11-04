@@ -186,14 +186,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (signUpError) return { error: new Error(signUpError.message) };
       if (!authData.user) return { error: new Error('Registration succeeded but no user returned.') };
 
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: authData.user.id,
-        full_name: name.trim(),
-        phone: phone.trim(),
-        email: cleanEmail,
-      });
+      // Use upsert to prevent "duplicate key" errors on re-registration attempts.
+      // This will create the profile if it doesn't exist, or update it if it does.
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: authData.user.id,
+          full_name: name.trim(),
+          phone: phone.trim(),
+          email: cleanEmail,
+        });
 
       if (profileError) return { error: new Error(profileError.message) };
+
       console.log('✅ User registered:', cleanEmail);
       return { error: null };
     } catch (err: any) {
