@@ -186,6 +186,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (signUpError) return { error: new Error(signUpError.message) };
       if (!authData.user) return { error: new Error('Registration succeeded but no user returned.') };
 
+      // Manually set the user in the session to ensure subsequent operations (like profile upsert) are authenticated.
+      // This is crucial if RLS is enabled on the profiles table.
+      await supabase.auth.setUser(authData.user);
+
       // Use upsert to prevent "duplicate key" errors on re-registration attempts.
       // This will create the profile if it doesn't exist, or update it if it does.
       const { error: profileError } = await supabase
