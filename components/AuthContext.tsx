@@ -39,7 +39,7 @@ interface AuthContextType {
     name: string,
     email: string,
     phone: string,
-    password?: string
+    password: string
   ) => Promise<{ error: Error | null }>;
   bookAppointment: (
     appointmentData: Omit<
@@ -169,13 +169,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // ---------------------
   // REGISTER
   // ---------------------
-  const register = async (name: string, email: string, phone: string, password?: string) => {
+  const register = async (name: string, email: string, phone: string, password: string) => {
     try {
       const cleanEmail = email.trim();
-      const cleanPassword = password?.trim() ?? '';
+      const cleanPassword = password.trim();
 
-      if (cleanPassword.length < 6) {
-        return { error: new Error('Password must be at least 6 characters.') };
+      if (cleanPassword.length < 8) {
+        return { error: new Error('Password must be at least 8 characters.') };
       }
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
